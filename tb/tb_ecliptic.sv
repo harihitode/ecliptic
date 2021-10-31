@@ -22,7 +22,8 @@ module tb_ecliptic;
   } class_result_s;
 
   logic [31:0] src1, src2;
-  logic [31:0] res_bop, res_cmp;
+  logic        src1_unsigned_cvtw;
+  logic [31:0] res_bop, res_cmp, res_cvtw;
   class_result_s res_cls;
   logic          invalid_cmp;
 
@@ -61,13 +62,34 @@ module tb_ecliptic;
      .nrst(nrst)
      );
 
+  ecliptic_converter_from_int CVTW
+    (
+     .clk(clk),
+     .req('b1),
+     .src(src1),
+     .src_unsigned(src1_unsigned_cvtw),
+     .ack(),
+     .res(res_cvtw),
+     .inexact(),
+     .nrst(nrst)
+     );
+
   initial begin
+    src1_unsigned_cvtw = 'b0;
     ##1;
     src1 = 32'h3f800000;
     src2 = 32'hcf800000;
     ##1;
     src1 = 32'h7f800001;
     src2 = 32'h3f800000;
+    ##1;
+    src1 = 32'h00000003;
+    ##1;
+    src1_unsigned_cvtw = 'b0;
+    src1 = 32'hFFFFFFFD;
+    ##1;
+    src1_unsigned_cvtw = 'b1;
+    src1 = 32'hFFFFFFFD;
     ##10;
     $finish;
   end

@@ -22,7 +22,7 @@ module tb_ecliptic;
   } class_result_s;
 
   logic [31:0] src1, src2;
-  logic        src1_unsigned_cvtw;
+  logic        src_unsigned_cvts, res_unsigned_cvtw;
   logic [31:0] res_bop, res_cmp, res_cvtw;
   class_result_s res_cls;
   logic          invalid_cmp;
@@ -62,20 +62,34 @@ module tb_ecliptic;
      .nrst(nrst)
      );
 
-  ecliptic_converter_from_int CVTW
+  ecliptic_converter_to_float CVTS
     (
      .clk(clk),
      .req('b1),
      .src(src1),
-     .src_unsigned(src1_unsigned_cvtw),
+     .src_unsigned(src_unsigned_cvts),
+     .ack(),
+     .res(res_cvts),
+     .inexact(),
+     .nrst(nrst)
+     );
+
+  ecliptic_converter_to_word CVTW
+    (
+     .clk(clk),
+     .req('b1),
+     .src(src1),
+     .res_unsigned(res_unsigned_cvtw),
      .ack(),
      .res(res_cvtw),
+     .invalid(),
      .inexact(),
      .nrst(nrst)
      );
 
   initial begin
-    src1_unsigned_cvtw = 'b0;
+    src_unsigned_cvts = 'b0;
+    res_unsigned_cvtw = 'b0;
     ##1;
     src1 = 32'h3f800000;
     src2 = 32'hcf800000;
@@ -85,11 +99,17 @@ module tb_ecliptic;
     ##1;
     src1 = 32'h00000003;
     ##1;
-    src1_unsigned_cvtw = 'b0;
+    src_unsigned_cvts = 'b0;
     src1 = 32'hFFFFFFFD;
     ##1;
-    src1_unsigned_cvtw = 'b1;
+    src_unsigned_cvts = 'b1;
     src1 = 32'hFFFFFFFD;
+    ##1;
+    res_unsigned_cvtw = 'b0;
+    src1 = 32'h3F800000;
+    ##1;
+    res_unsigned_cvtw = 'b0;
+    src1 = 32'h40400000;
     ##10;
     $finish;
   end

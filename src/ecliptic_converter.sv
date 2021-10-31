@@ -5,7 +5,88 @@
 `define MAX_UNSIGNED_INTEGER 32'hFFFF_FFFF;
 `define ZERO 32'h0000_0000;
 
-module ecliptic_converter_from_int
+module ecliptic_rounder
+  (
+   input wire [33:0]   src,
+   input wire [1:0]    rm,
+   output logic [31:0] res,
+   output logic        inexact
+   );
+
+endmodule
+
+module ecliptic_converter_to_word
+  (
+   input wire          clk,
+   input wire          req,
+   input wire [31:0]   src,
+   input wire [1:0]    rm,
+   input wire          res_unsigned,
+   output logic        ack,
+   output logic [31:0] res,
+   output logic        invalid,
+   output logic        inexact,
+   input wire          nrst
+   );
+
+  logic                signflag;
+  logic [7:0]          exponent;
+  logic [23:0]         mantissa;
+  logic [31:0]         res_n;
+
+  logic                NaN; // source is not a number
+  logic                OoR; // result is out of range
+  logic                pInf; // source is a positive infinite
+  logic                nInf; // source is a negative invinite
+  always_comb begin
+    signflag = (res_unsigned) ? 'b0 : src[31];
+    NaN = (&src[30:23]) & (|src[22:0]);
+    pInf = ~src[31] & (&src[30:23]) & ~(|src[22:0]);
+    nInf =  src[31] & (&src[30:23]) & ~(|src[22:0]);
+    exponent = src[30:23] - 'd127;
+    mantissa = {1'b1, src[22:0]};
+    if (exponent > 'd23) begin
+      // todo overflow
+      mantissa = mantissa << (exponent - 'd23);
+    end else begin
+      mantissa = mantissa >> ('d23 - exponent);
+    end
+    if (signflag) begin
+      res_n = -mantissa;
+    end else begin
+      res_n = mantissa;
+    end
+  end
+
+  always_ff @(posedge clk) begin
+    if (~nrst) begin
+      ack <= '0;
+      res <= '0;
+      invalid <= '0;
+      inexact <= '0;
+    end else begin
+      if (req) begin
+        ack <= 'b1;
+        if (pInf | NaN) begin
+          res <= `MAX_SIGNED_INTEGER;
+        end else if (nInf) begin
+          res <= `MIN_SIGNED_INTEGER;
+        end else begin
+          res <= res_n;
+        end
+        invalid <= NaN | OoR | nInf | pInf;
+        inexact <= '0; // TODO
+      end else begin
+        ack <= '0;
+        res <= '0;
+        invalid <= '0;
+        inexact <= '0;
+      end
+    end
+  end
+endmodule
+
+module ecliptic_converter_to_float
   (
    input wire          clk,
    input wire          req,
@@ -57,6 +138,7 @@ module ecliptic_converter_from_int
       if (req) begin
         ack <= 'b1;
         res <= {signflag, exponent, mantissa};
+        inexact <= '0; // TODO
       end else begin
         ack <= '0;
         res <= '0;

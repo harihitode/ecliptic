@@ -22,9 +22,9 @@ module tb_ecliptic;
   } class_result_s;
 
   logic [31:0] src1, src2;
-  logic [31:0] res_bop, res_cmp_min, res_cmp_max;
+  logic [31:0] res_bop, res_cmp;
   class_result_s res_cls;
-  logic          res_cmp_le, res_cmp_lt, res_cmp_eq;
+  logic          invalid_cmp;
 
   ecliptic_bitoperation BOP
     (
@@ -54,12 +54,10 @@ module tb_ecliptic;
      .req('b1),
      .src1(src1),
      .src2(src2),
+     .op(3'b101),
      .ack(),
-     .minimum(res_cmp_min),
-     .maximum(res_cmp_max),
-     .lt(res_cmp_lt),
-     .eq(res_cmp_eq),
-     .le(res_cmp_le),
+     .res(res_cmp),
+     .invalid(invalid_cmp),
      .nrst(nrst)
      );
 
@@ -68,7 +66,7 @@ module tb_ecliptic;
     src1 = 32'h3f800000;
     src2 = 32'hcf800000;
     ##1;
-    src1 = 32'h7fc00000;
+    src1 = 32'h7f800001;
     src2 = 32'h3f800000;
     ##10;
     $finish;

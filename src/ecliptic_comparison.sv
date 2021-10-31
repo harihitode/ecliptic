@@ -1,27 +1,37 @@
 `default_nettype none
 `define CANONICAL_NAN 32'h7fc00000
+`define OP_LE 3'b000
+`define OP_LT 3'b001
+`define OP_EQ 3'b010
+`define OP_MIN 3'b100
+`define OP_MAX 3'b101
 
+// Invalid Exception FLags
+// MIN, MAX: exception either is sNaN
+// LT, LE:   exception either is NaN
+// EQ:       exception either is sNaN
 module ecliptic_comparison
   (
    input wire          clk,
    input wire [31:0]   src1,
    input wire [31:0]   src2,
    input wire          req,
-   output logic [31:0] minimum,
-   output logic [31:0] maximum,
-   output logic        lt,
-   output logic        le,
-   output logic        eq,
+   input wire [2:0]    op,
+   output logic [31:0] res,
+   output logic        invalid,
    output logic        ack,
    input wire          nrst
    );
 
   logic                nan_src1, nan_src2;
+  logic                snan_src1, snan_src2;
   logic [31:0]         min_n, max_n;
   logic                lt_n, eq_n, le_n;
   always_comb begin: fp_comparison_min_max
     nan_src1 = (&src1[30:23]) | (|src1[22:0]);
     nan_src2 = (&src2[30:23]) | (|src2[22:0]);
+    snan_src1 = (&src1[30:23]) & ~src1[22] & (|src1[21:0]);
+    snan_src2 = (&src2[30:23]) & ~src2[22] & (|src2[21:0]);
     if (nan_src1 & nan_src2) begin
       min_n = `CANONICAL_NAN;
       max_n = `CANONICAL_NAN;
@@ -89,27 +99,33 @@ module ecliptic_comparison
 
   always_ff @(posedge clk) begin
     if (~nrst) begin
-      maximum <= '0;
-      minimum <= '0;
-      eq <= '0;
-      lt <= '0;
-      le <= '0;
+      res <= '0;
       ack <= '0;
+      invalid <= '0;
     end else begin
       if (req) begin
-        maximum <= max_n;
-        minimum <= min_n;
-        eq <= eq_n;
-        lt <= lt_n;
-        le <= eq_n | lt_n;
+        case (op)
+          `OP_LE: res <= {31'd0, le_n | eq_n};
+          `OP_LT: res <= {31'd0, lt_n};
+          `OP_EQ: res <= {31'd0, eq_n};
+          `OP_MIN: res <= min_n;
+          `OP_MAX: res <= max_n;
+          default: res <= '0;
+        endcase
         ack <= 'b1;
+        if (op == `OP_LE || op == `OP_LT) begin
+          invalid <= nan_src1 | nan_src2;
+        end else if (op == `OP_EQ) begin
+          invalid <= snan_src1 | snan_src2;
+        end else if (op == `OP_MIN || op == `OP_MAX) begin
+          invalid <= snan_src1 | snan_src2;
+        end else begin
+          invalid <= '0;
+        end
       end else begin
-        maximum <= '0;
-        minimum <= '0;
-        eq <= '0;
-        lt <= '0;
-        le <= '0;
+        res <= '0;
         ack <= '0;
+        invalid <= '0;
       end
     end
   end
